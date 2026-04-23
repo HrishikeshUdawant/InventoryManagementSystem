@@ -20,30 +20,30 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import SettingsIcon from "@mui/icons-material/Settings";
 import MenuIcon from "@mui/icons-material/Menu";
-
-/* ✅ Software Icon */
 import ComputerIcon from "@mui/icons-material/Computer";
 
 /* Components */
 import ThemeSwitch from "../components/ThemeSwitch";
 
-/* Context */
+/* Theme Context */
 import { ColorModeContext } from "../theme/ThemeContext";
-import { AuthContext } from "../auth/AuthContext";
+
+/* ✅ Clerk */
+import { useClerk, UserButton } from "@clerk/clerk-react";
 
 export default function Sidebar({ selected, setSelected }) {
   const [open, setOpen] = useState(true);
+
   const { mode } = useContext(ColorModeContext);
-  const { logout } = useContext(AuthContext);
+
+  // ✅ Clerk logout
+  const { signOut } = useClerk();
 
   /* Sidebar Menu Items */
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon /> },
     { text: "Products", icon: <Inventory2Icon /> },
-
-    /* ✅ New Software Option */
     { text: "Software", icon: <ComputerIcon /> },
-
     { text: "Categories", icon: <CategoryIcon /> },
     { text: "Suppliers", icon: <LocalShippingIcon /> },
     { text: "Stock Movement", icon: <SwapHorizIcon /> },
@@ -84,6 +84,17 @@ export default function Sidebar({ selected, setSelected }) {
           <IconButton onClick={() => setOpen(!open)}>
             <MenuIcon />
           </IconButton>
+        </Box>
+
+        {/* ✅ Clerk User Avatar */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            mb: 2,
+          }}
+        >
+          <UserButton afterSignOutUrl="/" />
         </Box>
 
         {/* Menu Items */}
@@ -127,7 +138,7 @@ export default function Sidebar({ selected, setSelected }) {
           <ThemeSwitch />
         </Box>
 
-        {/* Logout Button */}
+        {/* ✅ Clerk Logout Button */}
         <Box
           sx={{
             position: "absolute",
@@ -138,7 +149,7 @@ export default function Sidebar({ selected, setSelected }) {
           }}
         >
           <Button
-            onClick={logout}
+            onClick={() => signOut()}
             variant="contained"
             color="error"
             sx={{ width: open ? "80%" : "60px" }}

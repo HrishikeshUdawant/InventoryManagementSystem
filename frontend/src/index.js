@@ -1,15 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+
+import { ClerkProvider } from "@clerk/clerk-react";
 import ThemeContextProvider from "./theme/ThemeContext";
-import AuthProvider from "./auth/AuthContext";
+
+const clerkPubKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
-  <AuthProvider>
+  <ClerkProvider publishableKey={clerkPubKey}>
     <ThemeContextProvider>
       <App />
     </ThemeContextProvider>
-  </AuthProvider>
+  </ClerkProvider>
 );

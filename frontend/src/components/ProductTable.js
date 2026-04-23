@@ -1,9 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const LOW_STOCK_LIMIT = 5;
 
+/* ================= PRODUCT OPTIONS ================= */
+
+const PRODUCT_OPTIONS_KEY = "productOptions";
+
+const getProductOptions = () =>
+  JSON.parse(localStorage.getItem(PRODUCT_OPTIONS_KEY)) || [
+    "Laptop",
+    "Mobile",
+    "Monitor",
+    "Keyboard",
+  ];
+
+/* ⭐ Detect Product-like Columns Automatically */
+
+const isProductColumn = (col) => {
+  const name = col.toLowerCase();
+
+  return (
+    name.includes("product") ||
+    name.includes("item") ||
+    name.includes("device") ||
+    name.includes("software") ||
+    name.includes("asset") ||
+    name.includes("name")
+  );
+};
+
 export default function ProductTable() {
-  // ✅ Load saved table from localStorage
+
   const savedData = JSON.parse(localStorage.getItem("productTable"));
 
   const [columns, setColumns] = useState(
@@ -14,302 +41,235 @@ export default function ProductTable() {
     savedData?.rows || [{ "Product Name": "", Price: "", Quantity: "" }]
   );
 
-  // ✅ Error State
+  const [productOptions] = useState(getProductOptions());
   const [error, setError] = useState("");
-
-  // ✅ Audit Logs State
   const [logs, setLogs] = useState([]);
 
-  // ✅ Auto Save Table
+  const fileInputRef = useRef(null);
+
+  /* ================= AUTO SAVE ================= */
+
   useEffect(() => {
     localStorage.setItem("productTable", JSON.stringify({ columns, rows }));
   }, [columns, rows]);
 
-  // ✅ Add Log Helper
+  /* ================= LOG ================= */
+
   const addLog = (message) => {
     const time = new Date().toLocaleTimeString();
-    setLogs([{ time, message }, ...logs]);
+    setLogs((prev) => [{ time, message }, ...prev]);
   };
 
-  // ✅ Validation Function
+  /* ================= VALIDATION ================= */
+
   const validateRow = (row) => {
-    if (!row["Product Name"] || row["Product Name"].trim() === "") {
-      return "Product Name is required!";
-    }
+    if (!row["Product Name"]) return null;
 
-    if (row["Price"] && Number(row["Price"]) <= 0) {
+    if (row.Price && Number(row.Price) <= 0)
       return "Price must be greater than 0!";
-    }
 
-    if (row["Quantity"] && Number(row["Quantity"]) < 0) {
+    if (row.Quantity && Number(row.Quantity) < 0)
       return "Quantity cannot be negative!";
-    }
 
     return null;
   };
 
-  // ✅ Add Row
+  /* ================= ADD ROW ================= */
+
   const addRow = () => {
     let newRow = {};
-    columns.forEach((col) => {
-      newRow[col] = "";
-    });
+    columns.forEach((c) => (newRow[c] = ""));
+    setRows([newRow, ...rows]);
 
-    setRows([...rows, newRow]);
-    addLog("➕ New Row Added");
+    addLog("➕ Row Added");
   };
 
-  // ✅ Remove Row
+  /* ================= REMOVE ROW ================= */
+
   const removeRow = (index) => {
-    let updatedRows = rows.filter((_, i) => i !== index);
-    setRows(updatedRows);
+    setRows(rows.filter((_, i) => i !== index));
     addLog("🗑 Row Removed");
   };
 
-  // ✅ Add Column
+  /* ================= ADD COLUMN ================= */
+
   const addColumn = () => {
     let colName = prompt("Enter New Column Name:");
-
     if (!colName) return;
 
-    if (columns.includes(colName)) {
-      alert("Column already exists!");
-      return;
-    }
+    let position = prompt(`Insert column position (1-${columns.length + 1})`);
 
-    setColumns([...columns, colName]);
+    position = Number(position) - 1;
 
-    let updatedRows = rows.map((row) => ({
-      ...row,
+    if (isNaN(position) || position < 0)
+      position = columns.length;
+
+    const newColumns = [...columns];
+    newColumns.splice(position, 0, colName);
+
+    const updatedRows = rows.map((r) => ({
+      ...r,
       [colName]: "",
     }));
 
+    setColumns(newColumns);
     setRows(updatedRows);
+
     addLog(`➕ Column Added: ${colName}`);
   };
 
-  // ✅ Remove Column
+  /* ================= REMOVE COLUMN ================= */
+
   const removeColumn = (colName) => {
-    if (window.confirm(`Remove column "${colName}"?`)) {
-      let updatedColumns = columns.filter((c) => c !== colName);
 
-      let updatedRows = rows.map((row) => {
-        let newRow = { ...row };
-        delete newRow[colName];
-        return newRow;
-      });
+    if (!window.confirm(`Remove ${colName}?`)) return;
 
-      setColumns(updatedColumns);
-      setRows(updatedRows);
+    const updatedColumns = columns.filter((c) => c !== colName);
 
-      addLog(`❌ Column Removed: ${colName}`);
-    }
-  };
-
-  // ✅ Handle Cell Edit + Validation
-  const handleChange = (rowIndex, colName, value) => {
-    let updatedRows = [...rows];
-    updatedRows[rowIndex][colName] = value;
-
-    // Validate Row
-    const errMsg = validateRow(updatedRows[rowIndex]);
-
-    if (errMsg) {
-      setError(errMsg);
-    } else {
-      setError("");
-    }
-
-    setRows(updatedRows);
-    addLog(`✏ Updated ${colName} in Row ${rowIndex + 1}`);
-  };
-
-  // ✅ Download CSV
-  const downloadCSV = () => {
-    let csv = "";
-    csv += columns.join(",") + "\n";
-
-    rows.forEach((row) => {
-      let values = columns.map((col) => row[col] || "");
-      csv += values.join(",") + "\n";
+    const updatedRows = rows.map((row) => {
+      const r = { ...row };
+      delete r[colName];
+      return r;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "products.csv";
-    a.click();
-
-    addLog("⬇ CSV Downloaded");
+    setColumns(updatedColumns);
+    setRows(updatedRows);
   };
 
-  // ✅ Upload CSV
-  const uploadCSV = (event) => {
+  /* ================= HANDLE CHANGE ================= */
+
+  const handleChange = (rowIndex, colName, value) => {
+
+    const updatedRows = [...rows];
+    updatedRows[rowIndex][colName] = value;
+
+    const err = validateRow(updatedRows[rowIndex]);
+    setError(err || "");
+
+    setRows(updatedRows);
+  };
+
+  /* ================= CSV UPLOAD ================= */
+
+  const handleCSVUpload = (event) => {
+
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
 
     reader.onload = (e) => {
+
       const text = e.target.result;
 
-      const lines = text.split("\n").filter((line) => line.trim() !== "");
-      if (lines.length === 0) return;
+      const lines = text.split("\n").filter((l) => l.trim() !== "");
 
-      const headers = lines[0].split(",").map((h) => h.trim());
+      const headers = lines[0].split(",");
 
       const newRows = lines.slice(1).map((line) => {
-        const values = line.split(",").map((v) => v.trim());
 
-        let rowObj = {};
-        headers.forEach((header, index) => {
-          rowObj[header] = values[index] || "";
+        const values = line.split(",");
+
+        let row = {};
+
+        headers.forEach((h, i) => {
+          row[h.trim()] = values[i] ? values[i].trim() : "";
         });
 
-        return rowObj;
+        return row;
       });
 
       setColumns(headers);
       setRows(newRows);
 
-      addLog("📂 CSV Uploaded Successfully");
+      addLog("📂 CSV Uploaded");
     };
 
     reader.readAsText(file);
   };
 
-  // ✅ Upload Excel File (.xls/.xlsx)
-const uploadExcel = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+  /* ================= DELETE CSV ================= */
 
-  const reader = new FileReader();
+  const deleteCSV = () => {
 
-  reader.onload = (e) => {
-    const data = new Uint8Array(e.target.result);
+    if (!window.confirm("Delete CSV data?")) return;
 
-    // Import XLSX Library
-    const XLSX = require("xlsx");
+    setColumns(["Product Name", "Price", "Quantity"]);
+    setRows([{ "Product Name": "", Price: "", Quantity: "" }]);
 
-    // Read Workbook
-    const workbook = XLSX.read(data, { type: "array" });
+    localStorage.removeItem("productTable");
 
-    // Get First Sheet
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-
-    // Convert Sheet to JSON
-    const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-    if (jsonData.length === 0) return;
-
-    // Extract Columns
-    const headers = Object.keys(jsonData[0]);
-
-    // Update Table
-    setColumns(headers);
-    setRows(jsonData);
-
-    addLog("📂 Excel File Uploaded Successfully");
+    addLog("🗑 CSV Data Deleted");
   };
 
-  reader.readAsArrayBuffer(file);
-};
+  /* ================= ANALYTICS ================= */
 
-  // ✅ Clear Table
-  const clearTable = () => {
-    if (window.confirm("Clear full table?")) {
-      localStorage.removeItem("productTable");
-      setColumns(["Product Name", "Price", "Quantity"]);
-      setRows([{ "Product Name": "", Price: "", Quantity: "" }]);
-
-      addLog("❌ Table Cleared");
-    }
-  };
-
-  // ✅ Reports & Analytics
   const totalProducts = rows.length;
 
   const totalStock = rows.reduce(
-    (sum, row) => sum + (Number(row["Quantity"]) || 0),
+    (s, r) => s + (Number(r.Quantity) || 0),
     0
   );
 
   const totalValue = rows.reduce(
-    (sum, row) =>
-      sum +
-      (Number(row["Price"]) || 0) * (Number(row["Quantity"]) || 0),
+    (s, r) => s + (Number(r.Price) || 0) * (Number(r.Quantity) || 0),
     0
   );
 
+  /* ================= UI ================= */
+
   return (
     <div>
-      <h2>📦 Products Table (Step 2 Complete)</h2>
 
-      {/* ✅ Analytics */}
+      <h2>📦 Products Table</h2>
+
+      <h3>📊 Inventory Analytics</h3>
+
+      <p>Total Items: {totalProducts}</p>
+      <p>Total Stock: {totalStock}</p>
+      <p>Total Value: ₹{totalValue}</p>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
       <div style={{ marginBottom: 15 }}>
-        <h3>📊 Inventory Analytics</h3>
-        <p>✅ Total Items: {totalProducts}</p>
-        <p>📦 Total Stock Quantity: {totalStock}</p>
-        <p>💰 Total Inventory Value: ₹{totalValue}</p>
-      </div>
 
-      {/* ✅ Error */}
-      {error && (
-        <p style={{ color: "red", fontWeight: "bold" }}>❌ {error}</p>
-      )}
+        <button onClick={addRow} style={btnStyle}>➕ Add Row</button>
 
-      {/* Buttons */}
-      <div style={{ marginBottom: 15 }}>
-        <button onClick={addRow} style={btnStyle}>
-          ➕ Add Row
-        </button>
-
-        <button onClick={addColumn} style={btnStyle}>
-          ➕ Add Column
-        </button>
-
-        <button onClick={downloadCSV} style={btnStyle}>
-          ⬇ Download CSV
-        </button>
-
-        <label style={{ ...btnStyle, background: "green" }}>
-          📂 Upload CSV
-          <input
-            type="file"
-            accept=".csv"
-            onChange={uploadCSV}
-            style={{ display: "none" }}
-          />
-        </label>
-        {/* Upload Excel */}
-        <label style={{ ...btnStyle, background: "purple" }}>
-          📊 Upload Excel
-          <input
-            type="file"
-            accept=".xls,.xlsx"
-            onChange={uploadExcel}
-            style={{ display: "none" }}
-          />
-        </label>
+        <button onClick={addColumn} style={btnStyle}>➕ Add Column</button>
 
         <button
-          onClick={clearTable}
+          onClick={() => fileInputRef.current.click()}
+          style={btnStyle}
+        >
+          📂 Upload CSV
+        </button>
+
+        <input
+          type="file"
+          accept=".csv"
+          ref={fileInputRef}
+          onChange={handleCSVUpload}
+          style={{ display: "none" }}
+        />
+
+        <button
+          onClick={deleteCSV}
           style={{ ...btnStyle, background: "red" }}
         >
-          ❌ Clear Table
+          🗑 Delete CSV
         </button>
+
       </div>
 
-      {/* Table */}
       <table border="1" cellPadding="10" style={{ width: "100%" }}>
+
         <thead>
           <tr>
+
             {columns.map((col, i) => (
               <th key={i}>
                 {col}
+
                 <button
                   onClick={() => removeColumn(col)}
                   style={smallBtn}
@@ -318,77 +278,105 @@ const uploadExcel = (event) => {
                 </button>
               </th>
             ))}
+
             <th>Action</th>
+
           </tr>
         </thead>
 
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {columns.map((col, colIndex) => (
-                <td key={colIndex}>
-                  <input
-                    type="text"
-                    value={row[col]}
-                    onChange={(e) =>
-                      handleChange(rowIndex, col, e.target.value)
-                    }
-                    style={{
-                      width: "90%",
-                      border:
-                        col === "Quantity" &&
-                        Number(row[col]) < LOW_STOCK_LIMIT
-                          ? "2px solid red"
-                          : "1px solid gray",
-                    }}
-                  />
 
-                  {/* Low Stock Alert */}
-                  {col === "Quantity" &&
-                    row[col] !== "" &&
-                    Number(row[col]) < LOW_STOCK_LIMIT && (
-                      <p style={{ color: "red", fontSize: "12px" }}>
-                        ⚠ Low Stock!
-                      </p>
-                    )}
+          {rows.map((row, rowIndex) => (
+
+            <tr key={rowIndex}>
+
+              {columns.map((col, colIndex) => (
+
+                <td key={colIndex}>
+
+                  {isProductColumn(col) ? (
+
+                    <select
+                      value={row[col]}
+                      onChange={(e) =>
+                        handleChange(rowIndex, col, e.target.value)
+                      }
+                      style={{ width: "95%" }}
+                    >
+
+                      <option value="">Select</option>
+
+                      {productOptions.map((p, i) => (
+                        <option key={i} value={p}>
+                          {p}
+                        </option>
+                      ))}
+
+                    </select>
+
+                  ) : (
+
+                    <input
+                      type="text"
+                      value={row[col]}
+                      onChange={(e) =>
+                        handleChange(rowIndex, col, e.target.value)
+                      }
+                      style={{
+                        width: "90%",
+                        border:
+                          col.toLowerCase().includes("quantity") &&
+                          Number(row[col]) < LOW_STOCK_LIMIT
+                            ? "2px solid red"
+                            : "1px solid gray",
+                      }}
+                    />
+
+                  )}
+
                 </td>
+
               ))}
 
               <td>
+
                 <button
                   onClick={() => removeRow(rowIndex)}
                   style={{
                     background: "red",
                     color: "white",
                     border: "none",
-                    padding: "5px 10px",
-                    cursor: "pointer",
                   }}
                 >
-                  Delete Row
+                  Delete
                 </button>
+
               </td>
+
             </tr>
+
           ))}
+
         </tbody>
+
       </table>
 
-      {/* Audit Logs */}
-      <div style={{ marginTop: 20 }}>
-        <h3>📜 Audit History (Last 5 Actions)</h3>
-        <ul>
-          {logs.slice(0, 5).map((log, i) => (
-            <li key={i}>
-              [{log.time}] {log.message}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <h3>📜 Audit History</h3>
+
+      <ul>
+        {logs.slice(0, 5).map((l, i) => (
+          <li key={i}>
+            [{l.time}] {l.message}
+          </li>
+        ))}
+      </ul>
+
     </div>
   );
 }
 
-/* Styles */
+/* ================= STYLES ================= */
+
 const btnStyle = {
   marginRight: 10,
   padding: "8px 14px",
