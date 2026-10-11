@@ -29,16 +29,16 @@ const isProductColumn = (col) => {
   );
 };
 
-export default function ProductTable() {
+export default function SoftwareTable() {
 
-  const savedData = JSON.parse(localStorage.getItem("productTable"));
+  const savedData = JSON.parse(localStorage.getItem("softwareTable"));
 
   const [columns, setColumns] = useState(
-    savedData?.columns || ["Product Name", "Price", "Quantity"]
+    savedData?.columns || ["Software Name", "Version", "License", "Quantity"]
   );
 
   const [rows, setRows] = useState(
-    savedData?.rows || [{ "Product Name": "", Price: "", Quantity: "" }]
+    savedData?.rows || [{ "Software Name": "", Version: "", License: "", Quantity: "" }]
   );
 
   const [productOptions] = useState(getProductOptions());
@@ -50,7 +50,7 @@ export default function ProductTable() {
   /* ================= AUTO SAVE ================= */
 
   useEffect(() => {
-    localStorage.setItem("productTable", JSON.stringify({ columns, rows }));
+    localStorage.setItem("softwareTable", JSON.stringify({ columns, rows }));
   }, [columns, rows]);
 
   /* ================= LOG ================= */
@@ -194,10 +194,10 @@ export default function ProductTable() {
 
     if (!window.confirm("Delete CSV data?")) return;
 
-    setColumns(["Product Name", "Price", "Quantity"]);
-    setRows([{ "Product Name": "", Price: "", Quantity: "" }]);
+    setColumns(["Software Name", "Version", "License", "Quantity"]);
+    setRows([{ "Software Name": "", Version: "", License: "", Quantity: "" }]);
 
-    localStorage.removeItem("productTable");
+    localStorage.removeItem("softwareTable");
 
     addLog("🗑 CSV Data Deleted");
   };
@@ -221,9 +221,9 @@ export default function ProductTable() {
   return (
     <div>
 
-      <h2>📦 Products Table</h2>
+      <h2>💻 Software Table</h2>
 
-      <h3>📊 Inventory Analytics</h3>
+      <h3>📊 Software Analytics</h3>
 
       <p>Total Items: {totalProducts}</p>
       <p>Total Stock: {totalStock}</p>

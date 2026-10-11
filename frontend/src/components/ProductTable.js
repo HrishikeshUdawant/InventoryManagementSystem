@@ -31,15 +31,19 @@ const isProductColumn = (col) => {
 
 export default function ProductTable() {
 
-  const savedData = JSON.parse(localStorage.getItem("productTable"));
+  /* Helper: read current saved state from localStorage */
+  const readFromStorage = () => {
+    const saved = JSON.parse(localStorage.getItem("productTable"));
+    return {
+      columns: saved?.columns || ["Product Name", "Price", "Quantity"],
+      rows: saved?.rows || [{ "Product Name": "", Price: "", Quantity: "" }],
+    };
+  };
 
-  const [columns, setColumns] = useState(
-    savedData?.columns || ["Product Name", "Price", "Quantity"]
-  );
+  const initial = readFromStorage();
 
-  const [rows, setRows] = useState(
-    savedData?.rows || [{ "Product Name": "", Price: "", Quantity: "" }]
-  );
+  const [columns, setColumns] = useState(initial.columns);
+  const [rows, setRows] = useState(initial.rows);
 
   const [productOptions] = useState(getProductOptions());
   const [error, setError] = useState("");
@@ -52,6 +56,22 @@ export default function ProductTable() {
   useEffect(() => {
     localStorage.setItem("productTable", JSON.stringify({ columns, rows }));
   }, [columns, rows]);
+
+  /* ================= REACTIVE SYNC FROM ASSET MANAGER ================= */
+  // When assetManager.syncProductQuantities() writes to localStorage,
+  // this listener fires and pulls the updated rows back into React state.
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "productTable") {
+        const fresh = readFromStorage();
+        setColumns(fresh.columns);
+        setRows(fresh.rows);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   /* ================= LOG ================= */
 

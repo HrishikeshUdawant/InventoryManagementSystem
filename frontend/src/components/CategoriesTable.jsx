@@ -29,16 +29,16 @@ const isProductColumn = (col) => {
   );
 };
 
-export default function ProductTable() {
+export default function CategoriesTable() {
 
-  const savedData = JSON.parse(localStorage.getItem("productTable"));
+  const savedData = JSON.parse(localStorage.getItem("categoriesTable"));
 
   const [columns, setColumns] = useState(
-    savedData?.columns || ["Product Name", "Price", "Quantity"]
+    savedData?.columns || ["Category Name", "Description", "Product Count"]
   );
 
   const [rows, setRows] = useState(
-    savedData?.rows || [{ "Product Name": "", Price: "", Quantity: "" }]
+    savedData?.rows || [{ "Category Name": "", Description: "", "Product Count": "" }]
   );
 
   const [productOptions] = useState(getProductOptions());
@@ -50,7 +50,7 @@ export default function ProductTable() {
   /* ================= AUTO SAVE ================= */
 
   useEffect(() => {
-    localStorage.setItem("productTable", JSON.stringify({ columns, rows }));
+    localStorage.setItem("categoriesTable", JSON.stringify({ columns, rows }));
   }, [columns, rows]);
 
   /* ================= LOG ================= */
@@ -194,10 +194,10 @@ export default function ProductTable() {
 
     if (!window.confirm("Delete CSV data?")) return;
 
-    setColumns(["Product Name", "Price", "Quantity"]);
-    setRows([{ "Product Name": "", Price: "", Quantity: "" }]);
+    setColumns(["Category Name", "Description", "Product Count"]);
+    setRows([{ "Category Name": "", Description: "", "Product Count": "" }]);
 
-    localStorage.removeItem("productTable");
+    localStorage.removeItem("categoriesTable");
 
     addLog("🗑 CSV Data Deleted");
   };
@@ -221,9 +221,9 @@ export default function ProductTable() {
   return (
     <div>
 
-      <h2>📦 Products Table</h2>
+      <h2>🏷️ Categories Table</h2>
 
-      <h3>📊 Inventory Analytics</h3>
+      <h3>📊 Category Analytics</h3>
 
       <p>Total Items: {totalProducts}</p>
       <p>Total Stock: {totalStock}</p>
