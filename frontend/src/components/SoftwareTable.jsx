@@ -29,13 +29,17 @@ const isProductColumn = (col) => {
   );
 };
 
+const DEFAULT_COLUMNS = ["Software Name", "Version", "License", "Quantity"];
+
 export default function SoftwareTable() {
 
   const savedData = JSON.parse(localStorage.getItem("softwareTable"));
+  const savedCols = savedData?.columns;
+  const initialCols = savedCols
+    ? [...savedCols, ...DEFAULT_COLUMNS.filter((c) => !savedCols.includes(c))]
+    : DEFAULT_COLUMNS;
 
-  const [columns, setColumns] = useState(
-    savedData?.columns || ["Software Name", "Version", "License", "Quantity"]
-  );
+  const [columns, setColumns] = useState(initialCols);
 
   const [rows, setRows] = useState(
     savedData?.rows || [{ "Software Name": "", Version: "", License: "", Quantity: "" }]
@@ -121,8 +125,12 @@ export default function SoftwareTable() {
   /* ================= REMOVE COLUMN ================= */
 
   const removeColumn = (colName) => {
+    if (DEFAULT_COLUMNS.includes(colName)) {
+      alert(`Default column "${colName}" cannot be removed!`);
+      return;
+    }
 
-    if (!window.confirm(`Remove ${colName}?`)) return;
+    if (!window.confirm(`Are you sure you want to remove the column "${colName}"? All data in this column will be permanently deleted.`)) return;
 
     const updatedColumns = columns.filter((c) => c !== colName);
 
@@ -134,6 +142,7 @@ export default function SoftwareTable() {
 
     setColumns(updatedColumns);
     setRows(updatedRows);
+    addLog(`🗑️ Column Removed: ${colName}`);
   };
 
   /* ================= HANDLE CHANGE ================= */
@@ -270,12 +279,15 @@ export default function SoftwareTable() {
               <th key={i}>
                 {col}
 
-                <button
-                  onClick={() => removeColumn(col)}
-                  style={smallBtn}
-                >
-                  ✖
-                </button>
+                {!DEFAULT_COLUMNS.includes(col) && (
+                  <button
+                    onClick={() => removeColumn(col)}
+                    style={smallBtn}
+                    title={`Remove "${col}" column`}
+                  >
+                    ✖
+                  </button>
+                )}
               </th>
             ))}
 

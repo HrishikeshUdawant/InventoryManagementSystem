@@ -29,13 +29,24 @@ const isProductColumn = (col) => {
   );
 };
 
+const DEFAULT_COLUMNS = ["Product Name", "Price", "Quantity"];
+
 export default function ProductTable() {
 
   /* Helper: read current saved state from localStorage */
   const readFromStorage = () => {
     const saved = JSON.parse(localStorage.getItem("productTable"));
+    let cols = saved?.columns;
+    if (!cols) {
+      cols = [...DEFAULT_COLUMNS];
+    } else {
+      const missingDefaults = DEFAULT_COLUMNS.filter((c) => !cols.includes(c));
+      if (missingDefaults.length > 0) {
+        cols = [...cols, ...missingDefaults];
+      }
+    }
     return {
-      columns: saved?.columns || ["Product Name", "Price", "Quantity"],
+      columns: cols,
       rows: saved?.rows || [{ "Product Name": "", Price: "", Quantity: "" }],
     };
   };
@@ -141,8 +152,12 @@ export default function ProductTable() {
   /* ================= REMOVE COLUMN ================= */
 
   const removeColumn = (colName) => {
+    if (DEFAULT_COLUMNS.includes(colName)) {
+      alert(`Default column "${colName}" cannot be removed!`);
+      return;
+    }
 
-    if (!window.confirm(`Remove ${colName}?`)) return;
+    if (!window.confirm(`Are you sure you want to remove the column "${colName}"? All data in this column will be permanently deleted.`)) return;
 
     const updatedColumns = columns.filter((c) => c !== colName);
 
@@ -154,6 +169,7 @@ export default function ProductTable() {
 
     setColumns(updatedColumns);
     setRows(updatedRows);
+    addLog(`🗑️ Column Removed: ${colName}`);
   };
 
   /* ================= HANDLE CHANGE ================= */
@@ -290,12 +306,15 @@ export default function ProductTable() {
               <th key={i}>
                 {col}
 
-                <button
-                  onClick={() => removeColumn(col)}
-                  style={smallBtn}
-                >
-                  ✖
-                </button>
+                {!DEFAULT_COLUMNS.includes(col) && (
+                  <button
+                    onClick={() => removeColumn(col)}
+                    style={smallBtn}
+                    title={`Remove "${col}" column`}
+                  >
+                    ✖
+                  </button>
+                )}
               </th>
             ))}
 

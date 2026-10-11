@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -60,11 +60,25 @@ export default function SmartTable({
   const isDark = theme.palette.mode === "dark";
   const fileInputRef = useRef(null);
 
+  const isDefaultCol = (col) => {
+    return Array.isArray(defaultCols) && defaultCols.includes(col);
+  };
+
   /* ---- read / write helpers ---- */
   const readStorage = () => {
     const d = JSON.parse(localStorage.getItem(storageKey));
+    let cols = d?.columns;
+    if (!cols) {
+      cols = [...defaultCols];
+    } else {
+      // Ensure all default columns exist; if any were previously removed, preserve them
+      const missingDefaults = (defaultCols || []).filter((c) => !cols.includes(c));
+      if (missingDefaults.length > 0) {
+        cols = [...cols, ...missingDefaults];
+      }
+    }
     return {
-      columns: d?.columns || defaultCols,
+      columns: cols,
       rows: d?.rows || [{ ...defaultRow }],
     };
   };
@@ -86,8 +100,11 @@ export default function SmartTable({
   const [newColName, setNewColName] = useState("");
   const [newColPosition, setNewColPosition] = useState("end");
 
-  /* Delete confirm dialog */
+  /* Delete row confirm dialog */
   const [deleteIdx, setDeleteIdx] = useState(null);
+
+  /* Delete column confirm dialog */
+  const [colToDelete, setColToDelete] = useState(null);
 
   /* ---- auto save ---- */
   useEffect(() => {
@@ -168,11 +185,26 @@ export default function SmartTable({
   };
 
   /* ---- remove column ---- */
-  const handleRemoveCol = (col) => {
+  const handleRemoveColClick = (col) => {
+    if (isDefaultCol(col)) {
+      notify(`Default column "${col}" cannot be removed.`, "warning");
+      return;
+    }
+    setColToDelete(col);
+  };
+
+  const handleExecuteRemoveCol = () => {
+    if (!colToDelete) return;
+    const col = colToDelete;
+    if (isDefaultCol(col)) {
+      setColToDelete(null);
+      return;
+    }
     setColumns(columns.filter((c) => c !== col));
     setRows(rows.map((r) => { const x = { ...r }; delete x[col]; return x; }));
     addLog(`🗑️ Column Removed: ${col}`);
     notify(`Column "${col}" removed.`, "info");
+    setColToDelete(null);
   };
 
   /* ---- CSV export ---- */
@@ -365,31 +397,44 @@ export default function SmartTable({
                 >
                   #
                 </TableCell>
-                {columns.map((col) => (
-                  <TableCell
-                    key={col}
-                    sx={{
-                      background: isDark ? "#1a1a2e" : accentColor,
-                      color: "#fff",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      fontSize: 12,
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      {col}
-                      <Tooltip title={`Remove "${col}" column`}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveCol(col)}
-                          sx={{ color: "rgba(255,255,255,0.6)", p: 0.3, "&:hover": { color: "#fff" } }}
-                        >
-                          <span style={{ fontSize: 11 }}>✕</span>
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                ))}
+                {columns.map((col) => {
+                  const isDefault = isDefaultCol(col);
+                  return (
+                    <TableCell
+                      key={col}
+                      sx={{
+                        background: isDark ? "#1a1a2e" : accentColor,
+                        color: "#fff",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        fontSize: 12,
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <span>{col}</span>
+                        {!isDefault && (
+                          <Tooltip title={`Remove "${col}" column`}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveColClick(col)}
+                              sx={{
+                                color: "rgba(255,255,255,0.7)",
+                                p: 0.3,
+                                ml: 0.5,
+                                "&:hover": {
+                                  color: "#ff6b6b",
+                                  background: "rgba(255,255,255,0.15)",
+                                },
+                              }}
+                            >
+                              <span style={{ fontSize: 11, fontWeight: "bold" }}>✕</span>
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  );
+                })}
                 <TableCell
                   sx={{
                     background: isDark ? "#1a1a2e" : accentColor,
@@ -625,7 +670,7 @@ export default function SmartTable({
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirm Dialog */}
+      {/* Delete Row Confirm Dialog */}
       <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)} maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>🗑️ Delete Row?</DialogTitle>
         <DialogContent>
@@ -635,6 +680,43 @@ export default function SmartTable({
           <Button onClick={() => setDeleteIdx(null)} sx={{ borderRadius: 2, textTransform: "none" }}>Cancel</Button>
           <Button variant="contained" color="error" onClick={handleDeleteRow} sx={{ borderRadius: 2, fontWeight: 700, textTransform: "none" }}>
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Column Confirm Dialog */}
+      <Dialog
+        open={Boolean(colToDelete)}
+        onClose={() => setColToDelete(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+          🗑️ Remove Column
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to remove the column <strong>"{colToDelete}"</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            This will permanently delete this column and all its values across all {rows.length} row{rows.length !== 1 ? "s" : ""}.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setColToDelete(null)}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleExecuteRemoveCol}
+            sx={{ borderRadius: 2, fontWeight: 700, textTransform: "none" }}
+          >
+            Delete Column
           </Button>
         </DialogActions>
       </Dialog>
